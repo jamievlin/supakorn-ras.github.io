@@ -52,7 +52,9 @@ a:active {
 }
 
 .stdp {
-    margin: 2.5em;
+    margin: auto;
+    max-width: 45em;
+    padding: 2em 0.5em;
     text-align: justify;
     text-indent: 2em;
 }
