@@ -1,0 +1,102 @@
+body {
+    background-color: #111111;
+    color: #999999;
+    text-align: center;
+    padding: 0.25em;
+    margin: 2em 4em;
+
+
+    font-family: 'Crimson Text',
+        serif;
+    font-family: 'Archivo Narrow',
+        sans-serif;
+    font-family: 'Inconsolata',
+        monospace;
+
+}
+
+a:link {
+    color: #aaaaaa;
+}
+
+a:hover {
+    color: #cccccc;
+}
+
+a:visited {
+    color: #777777;
+}
+
+a:active {
+    color: #999999;
+}
+
+.center {
+    text-align: center
+}
+
+#header {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.smheader {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+#disclaimer {
+    font-size: 0.55em;
+    padding: 2em;
+    color: #333333;
+}
+
+.stdp {
+    margin: 2.5em;
+    text-align: justify;
+    text-indent: 2em;
+}
+
+.inlinemath {
+    color: #777777;
+    font-size: 1em;
+}
+
+.caption {
+    color: #666666;
+    font-size: 0.65em;
+}
+
+.centertable {
+    border-spacing: 1em 1em;
+    text-align: center;
+    margin: 0px auto;
+    border-collapse: collapse;
+}
+
+.imgcontainer {
+    padding: 0.2em;
+    vertical-align: middle;
+    text-align: center;
+}
+
+
+th,
+td {
+    vertical-align: center;
+    text-align: center;
+    align-items: center;
+    padding: 0.25em 0.75em;
+    border-left: 1px solid #333333;
+    border-right: 1px solid #333333;
+}
+
+table tr td:first-child,
+table tr th:first-child {
+    border-left: 0;
+}
+
+table tr td:last-child,
+table tr th:last-child {
+    border-right: 0;
+}
