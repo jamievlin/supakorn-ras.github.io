@@ -4,21 +4,14 @@
   <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
   <script id="shader-fs" type="x-shader/x-fragment">
-    in vec4 vColor;
-    in vec4 vViewPosition;
-    in vec3 vNormal;
-    flat in int vMaterialIndex;
+    varying vec4 vColor;
+    varying vec4 vViewPosition;
+    varying vec3 vNormal;
+    varying vec4 diffuse,emissive,specular;
+    varying float roughness,metallic,fresnel0;
 
-    out vec4 outColor;
-
+    vec4 outColor;
     uniform int useColor;
-
-    struct Material {
-      vec4 diffuse, emissive, specular;
-      float shininess, metallic, fresnel0;
-    };
-    
-    uniform Material objMaterial[nMaterials]; // assuming we are doing multiple materials, 
 
     // type, for now
     #define POINT_LIGHT 1
@@ -33,7 +26,7 @@
       float brightness;
       vec4 parameter;
     };
-    uniform Light objLights[nLights]; // again, can be set at will by the asy generator.
+    uniform Light objLights[nLights];
 
     float NDF_TRG(vec3 halfv, vec3 normal, float roughness) {
       float ndoth=max(dot(normal, halfv), 0.0);
@@ -61,26 +54,27 @@
     }
     
     // physical based shading using UE4 model.
-    vec3 physBDRF(Material material, vec3 normal, vec3 lightdir, vec3 lookdir) {
-      vec3 lambertian=material.diffuse.rgb;
+    vec3 physBDRF(vec3 normal, vec3 lightdir, vec3 lookdir) {
+      vec3 lambertian=diffuse.rgb;
       vec3 h=normalize(lightdir+lookdir);
       float omegain=max(dot(lookdir, normal), 0.0);
       float omegali=max(dot(lightdir, normal), 0.0);
-      float roughness=1.0-material.shininess;
       
       float D=NDF_TRG(h, normal, roughness*roughness);
       float G=Geom(lookdir, lightdir, normal, roughness*roughness);
-      float F=Fresnel(h, lookdir, material.fresnel0);
+      float F=Fresnel(h, lookdir, fresnel0);
       
       float denom=4.0*omegain*omegali;
-      if (denom == 0.0) {return vec3(0,0,0); }
+      float rawReflectance;
+      if(denom > 0.0)
+        rawReflectance=(D*G)/denom;
+      else 
+        rawReflectance=0.0;
       
-      float rawrefl=(D*G) / denom;
+      vec3 dielectric=mix(lambertian, rawReflectance*specular.rgb, F);
+      vec3 metal=rawReflectance*diffuse.rgb;
       
-      vec3 dielectric=mix(lambertian, rawrefl*material.specular.rgb, F);
-      vec3 metal=rawrefl*material.diffuse.rgb;
-      
-      return mix(dielectric, metal, material.metallic);
+      return mix(dielectric, metal, metallic);
     }
     
     void main(void)
@@ -91,19 +85,17 @@
       
       vec3 normal=normalSign*normalize(vNormal);
       vec3 Z=vec3(0,0,1.0);
-    #ifdef ORTHOGRAPHIC
+#ifdef ORTHOGRAPHIC
       vec3 viewDir=Z;
-    #else
+#else
       vec3 viewDir=-normalize(vViewPosition.xyz/vViewPosition.w);
-    #endif
+#endif
 
-      Material m=objMaterial[vMaterialIndex];
+      vec3 rawCol = emissive.xyz;
 
-      vec3 rawCol = m.emissive.xyz;
-
-      if (useColor == 1) {
-        m.diffuse = vColor;
-      }
+//      if(useColor == 1) {
+//        diffuse = vColor;
+//      }
 
       for (int i=0;i<nLights;++i) {
         Light Li=objLights[i];
@@ -115,28 +107,36 @@
           cosTheta = max(dot(normal, lightDirection), 0.0);
         }
         vec3 radiance = cosTheta * Li.color * Li.brightness;
-        rawCol += physBDRF(m, normal, lightDirection, viewDir) * radiance;
+        rawCol += physBDRF(normal, lightDirection, viewDir) * radiance;
       }
-      outColor=vec4(rawCol,m.diffuse.a);
+      gl_FragColor=vec4(rawCol,diffuse.a);
     }
   </script>
 
   <script id="shader-vs" type="x-shader/x-vertex">
-    in vec3 aVertexPosition;
-    in vec4 aVertexColor;
-    in vec3 aVertexNormal;
-    in int aVertexMaterialIndex;
+    attribute vec3 aVertexPosition;
+    attribute vec4 aVertexColor;
+    attribute vec3 aVertexNormal;
+    attribute float aVertexMaterialIndex;
 
     uniform mat4 uNormMatrix;
     uniform mat4 uVMMatrix;
     uniform mat4 uPVMatrix;
     
-    out vec4 vColor;
-    out vec3 vNormal;
-    out vec4 vViewPosition;
+    varying vec4 vColor;
+    varying vec3 vNormal;
+    varying vec4 vViewPosition;
 
-    flat out int vMaterialIndex;
-    
+    varying vec4 diffuse,emissive,specular;
+    varying float roughness,metallic,fresnel0;
+
+    struct Material {
+      vec4 diffuse,emissive,specular;
+      float shininess,metallic,fresnel0;
+    };
+
+    uniform Material objMaterial[nMaterials];
+
     void main(void) {
       gl_Position=uPVMatrix*vec4(aVertexPosition,1.0);
       vViewPosition=uVMMatrix*vec4(aVertexPosition,1.0);
@@ -145,26 +145,27 @@
       vNormal=normalize(rawNormal.xyz);
       
       vColor=aVertexColor;
-      vMaterialIndex=aVertexMaterialIndex;
+      Material m=objMaterial[int(aVertexMaterialIndex)];
+      diffuse=m.diffuse;
+      emissive=m.emissive;
+      specular=m.specular;
+      roughness=1.0-m.shininess;
+      metallic=m.metallic;
+      fresnel0=m.fresnel0;
     }
   </script>
 
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/combine/gh/vectorgraphics/asymptote@webgl/webgl/gl-matrix-min-2.3.2.js,gh/vectorgraphics/asymptote@webgl/webgl/glm-js-min-2.2.2.js,gh/vectorgraphics/asymptote@webgl/webgl/arcball-min-0.01.js,gh/vectorgraphics/asymptote@webgl/webgl/gl.min.js">
-  </script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/combine/gh/vectorgraphics/asymptote@webgl/webgl/gl-matrix-min-2.3.2.js,gh/vectorgraphics/asymptote@webgl/webgl/glm-js-min-2.2.2.js,gh/vectorgraphics/asymptote@webgl/webgl/arcball-min-0.01.js,gh/vectorgraphics/asymptote@webgl/webgl/gl.min.js"></script>
   <script type="text/javascript">
+  
 b=[-205.691,-150.647,-2096.14];
 B=[205.691,150.647,-1194.41];
 orthographic=false;
-pMatrix=new Float32Array([
-5.80681, 0, 0, 0, 
-0, 7.92853, 0, 0, 
-0, 0, -3.64914, -1, 
-0, 0, -5552.97, 0, 
-]);
+angle=0.250929;
 canvasWidth=1136;
 canvasHeight=832;
 size2=Math.hypot(canvasWidth,canvasHeight);
-var materialIndex = 0;
+Zoom0=1
     var lights = [new Light(
       type = enumDirectionalLight,
       lightColor = [1, 0.87, 0.745],
